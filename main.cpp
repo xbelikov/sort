@@ -34,11 +34,11 @@ int main(int argc, char* argv[])
 	time_t endTime;
 	double seconds;
 
-	viewFile("input", logEnabled);
+	//viewFile("input", logEnabled);
 
 	extsort.run();
 
-	viewFile("output", logEnabled);
+	//viewFile("output", logEnabled);
 
 	endTime = time(NULL);
 	seconds = difftime(endTime, startTime);
