@@ -37,7 +37,7 @@ int main(int argc, char* argv[])
 	viewFile("input", logEnabled);
 
 	extsort.run();
-	
+
 	viewFile("output", logEnabled);
 
 	endTime = time(NULL);

@@ -8,6 +8,7 @@
 #include <queue>
 #include <vector>
 
+#include "chunk_value.h"
 #include "logger.h"
 
 using namespace std;

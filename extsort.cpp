@@ -20,8 +20,6 @@ void Extsort::run()
 
 int Extsort::split()
 {
-	priority_queue<int, vector<int>, std::greater<int>> pqBuffer;
-
 	auto elementSize = sizeof(int);
 	auto inputSize = this->getFileSize(this->inputFile);
 	int nElementsInBuffer = this->bufferSize / elementSize;
@@ -31,53 +29,25 @@ int Extsort::split()
 	this->parts.reserve(chunksNumber);
 
 	this->logger.l("Split File ")->l(this->bufferSize)->l(" ")->l(inputSize)->l(" ")->l(chunksNumber)->end();
+	
+	char* buffer = new char [this->bufferSize];
 
 	for (auto i = 0; i < chunksNumber; i++) {
 		auto partFileName = to_string(i);
 
-		for (auto j = 0; j < nElementsInBuffer; j++) {
-			int number;
-			this->inputFile.read(reinterpret_cast<char*>(&number), elementSize);
-			
-			if (this->inputFile.eof()) {
-				break;
-			}
+		this->inputFile.read(buffer, this->bufferSize);
+		auto nread = this->inputFile.gcount();
 
-			pqBuffer.push(number);
-		}
-
+		qsort(buffer, nread / sizeof(int), sizeof(int), Extsort::comp);
 		this->parts.emplace_back(partFileName, ios::out | ios::in | ios::binary | ios::trunc);
-		this->savePart(i, partFileName, pqBuffer);
+		this->savePart(i, partFileName, buffer, nread);
 	}
 
+	delete[] buffer;
 	return chunksNumber;
 }
 
-struct ChunkValue
-{
-	int value;
-	int chunk;
-};
 
-class ChunkValueCpm
-{
-public:
-	bool operator()(const ChunkValue& lhs, const ChunkValue& rhs) const
-	{
-		return lhs.value > rhs.value;
-	}
-};
-
-int chunkValueComp(const void* p1, const void* p2)
-{
-	ChunkValue* cv1 = nullptr;
-	ChunkValue* cv2 = nullptr;
-
-	cv1 = (ChunkValue*) p1;
-	cv2 = (ChunkValue*) p2;
-
-	return cv1->value - cv2->value;
-}
 
 void Extsort::merge()
 {
@@ -109,8 +79,8 @@ void Extsort::merge()
 
 		//Количество временных файлов может быть больше, чем может вместить в себя
 		//буфер, поэтому может понадобиться сделать несколько проходов
-		while (currentMergePass < nMergePasses) {
-			this->logger.l("Pass: ")->l(currentMergePass + 1)->l(" of ")->l(nMergePasses)->end();
+		//while (currentMergePass < nMergePasses) {
+		//	this->logger.l("Pass: ")->l(currentMergePass + 1)->l(" of ")->l(nMergePasses)->end();
 		
 			//Пройдемся по временным файлам согласно текущего указателя 
 			//и соберем подвыборки для дальнейшей сортировки и определения наименьшего
@@ -142,19 +112,19 @@ void Extsort::merge()
 				currentChunk++;
 
 				//Выходим, если обработали последний элемент прохода, когда слияние многопроходное
-				if (currentChunk - 1 > 0 && nMergePasses > 1 && ((currentChunk - 1) % nChunksInPass) == 0) {
-					this->logger.l("break")->end();
-					break;
-				}
+		//		if (currentChunk - 1 > 0 && nMergePasses > 1 && ((currentChunk - 1) % nChunksInPass) == 0) {
+		//			this->logger.l("break")->end();
+		//			break;
+		//		}
 			}
 
 			ChunkValue minChunkValue = pqBuffer.top(); 
 			
-			if (
-				(currentMergePass == 0) ||
-				((nMergePasses - currentMergePass == 1) && (minChunkValue.value < currentValue.value)) ||
-				(nMergePasses - currentMergePass == 1) && nSlices - i == 1
-			) {
+		//	if (
+		//		(currentMergePass == 0) ||
+		//		((nMergePasses - currentMergePass == 1) && (minChunkValue.value < currentValue.value)) ||
+		//		(nMergePasses - currentMergePass == 1) && nSlices - i == 1
+		//	) {
 				this->logger.l("Merge pass: ")->l(currentMergePass)->end();
 				this->logger.l("Merge passes - merge pass: ")->l(nMergePasses - currentMergePass)->end();
 				
@@ -165,20 +135,21 @@ void Extsort::merge()
 							->l(" cur ")->l(currentValue.value)->end();
 				
 				currentValue = minChunkValue;
-			}
+		//	}
 
-			this->logger.l("Reset buffer offset, set next merge pass...")->end();
-			currentMergePass++;
-		}
+		//	this->logger.l("Reset buffer offset, set next merge pass...")->end();
+		//	currentMergePass++;
+		//}
 
 		this->logger.l("Move chunk pointer forward: ")->l(currentValue.chunk)->end();
 
 		//Перемещаем указатель на следующий элемент в выбранном блоке
 		pqBuffer.pop();
-		//chunksPointers[currentValue.chunk] += elementSize;
+		chunksPointers[currentValue.chunk] += elementSize;
 		chunksForRead[currentValue.chunk] = true;
 
 		this->outputFile.write(reinterpret_cast<char*>(&currentValue.value), elementSize);
+		
 	}
 }
 
