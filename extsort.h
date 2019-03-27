@@ -41,7 +41,7 @@ private:
 	int getChunksSize(int chunksNumber);
 	void savePart(int index, string fileName, char* data, int length);
 	void savePart(int index, string fileName, priority_queue<int, vector<int>, std::greater<int>>& pqBuffer);
-	void processPart(int chunk, int nChunks, int bufferSize);
+	void processPart(int chunk, int nChunks, int bufferSize, int inputLength);
 	static int comp(const void* p1, const void* p2);
 };
 

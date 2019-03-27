@@ -24,18 +24,17 @@ int Extsort::split()
 	auto inputSize = this->getFileSize(this->inputFile);
 	int nElementsInBuffer = this->bufferSize / elementSize;
 	this->elements = inputSize / elementSize;
-
-	int partBufferSize = this->bufferSize / 2;
-	this->chunks = this->getNumberOfChunks(partBufferSize, inputSize);
+	this->chunks = this->getNumberOfChunks(this->bufferSize, inputSize);
 
 	vector<future<void>> futures;
 
-	for (auto i = 0; i < this->chunks; i++) {
-		auto nChunks = this->chunks;
+	auto nChunks = this->chunks;
+	auto partBufferSize = this->bufferSize;
 
+	for (auto i = 0; i < this->chunks; i++) {
 		futures.push_back(
-			async([&, i, nChunks, partBufferSize] {
-				this->processPart(i, nChunks, partBufferSize);
+			async([&, i, nChunks, partBufferSize, inputSize] {
+				this->processPart(i, nChunks, partBufferSize, inputSize);
 			})
 		);
 	}
@@ -43,19 +42,26 @@ int Extsort::split()
 	return this->chunks;
 }
 
-void Extsort::processPart(int chunk, int nChunks, int bufferSize)
+void Extsort::processPart(int chunk, int nChunks, int bufferSize, int inputLength)
 {
+	ifstream ifs("input", ios::in | ios::binary);
+
+	int leftBytes = inputLength - (int) ifs.tellg();
+	bufferSize = (leftBytes < bufferSize)? leftBytes : bufferSize;
+
 	char* buffer = new char [bufferSize];
 	auto partFileName = to_string(chunk);
+	auto nread = 0;
 
-	ifstream ifs("input", ios::in | ios::binary);
+	ofstream part(partFileName, ios::out | ios::binary | ios::trunc);
 
 	ifs.seekg(chunk * bufferSize, ios::cur);
 	ifs.read(buffer, bufferSize);
-	auto nread = ifs.gcount();
+	nread = ifs.gcount();
 
 	qsort(buffer, nread / sizeof(int), sizeof(int), Extsort::comp);
-	this->savePart(chunk, partFileName, buffer, nread);
+	part.write(buffer, nread);
+
 	delete[] buffer;
 }
 
@@ -203,7 +209,6 @@ int Extsort::getNumberOfPasses(int nChunkValues, int nChunks)
 void Extsort::savePart(int index, string fileName, char* data, int length)
 {
 	ofstream part(fileName, ios::out | ios::binary | ios::trunc);
-	cout << "write " << length << endl;
 	part.write(data, length);
 	//this->parts[index].write(data, length);
 	//this->parts[index].seekg(0);
