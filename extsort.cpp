@@ -60,86 +60,61 @@ void Extsort::merge()
 	auto elementSize = sizeof(int);
 	int nSlices = this->elements;
 
-	auto nMergePasses = this->getNumberOfPasses(nChunkValues, this->chunks);
-
 	vector<int> chunksPointers(this->chunks);
 	vector<bool> chunksForRead(this->chunks);
 
 	ChunkValue currentValue;
 	priority_queue<ChunkValue, vector<ChunkValue>, ChunkValueCpm> pqBuffer;
 
+	int nElementsInBuffer = this->bufferSize / elementSize;
+	int* outputBuffer = new int[nElementsInBuffer];
+	auto outputBufferOffset = 0;
+
 	//Пройдемся по всем числам во временных файлах
 	for (auto i = 0; i < nSlices; i++) {
 		this->logger.l("----------------------------------------")->end();
 		this->logger.l("Slice: ")->l(i + 1)->l(" of ")->l(nSlices)->end();
-
-		auto nChunksInPass = this->getNumberOfChunksInPass(this->chunks, nMergePasses);
-		auto currentMergePass = 0;
 		auto currentChunk = 0;
-
-		//Количество временных файлов может быть больше, чем может вместить в себя
-		//буфер, поэтому может понадобиться сделать несколько проходов
-		//while (currentMergePass < nMergePasses) {
-		//	this->logger.l("Pass: ")->l(currentMergePass + 1)->l(" of ")->l(nMergePasses)->end();
 		
-			//Пройдемся по временным файлам согласно текущего указателя 
-			//и соберем подвыборки для дальнейшей сортировки и определения наименьшего
-			while (currentChunk < this->chunks) {
-				auto currentPointer = parts[currentChunk].tellg();
+		//Пройдемся по временным файлам согласно текущего указателя 
+		//и соберем подвыборки для дальнейшей сортировки и определения наименьшего
+		while (currentChunk < this->chunks) {
+			auto currentPointer = parts[currentChunk].tellg();
 
-				if (i == 0 || chunksForRead[currentChunk] && !parts[currentChunk].eof()) {
-					chunksForRead[currentChunk] = false;
+			if (i == 0 || chunksForRead[currentChunk] && !parts[currentChunk].eof()) {
+				chunksForRead[currentChunk] = false;
 
-					this->logger.l("Chunk: ")->l(currentChunk);
-					this->logger.l(" tellg: ")->l((int) currentPointer);
+				this->logger.l("Chunk: ")->l(currentChunk);
+				this->logger.l(" tellg: ")->l((int) currentPointer);
 
-					//Храним не только значение, но и позицию, чтобы потом можно было легко передвинуть указатель
-					ChunkValue chv;
-					chv.chunk = currentChunk;
+				//Храним не только значение, но и позицию, чтобы потом можно было легко передвинуть указатель
+				ChunkValue chv;
+				chv.chunk = currentChunk;
 
-					parts[currentChunk].read(reinterpret_cast<char*>(&chv.value), elementSize);
+				parts[currentChunk].read(reinterpret_cast<char*>(&chv.value), elementSize);
 
-					if (parts[currentChunk].eof()) {
-						this->logger.l(" EOF")->end();
-						currentChunk++;
-						continue;
-					}
-
-					pqBuffer.push(chv);
-					this->logger.l(", value: ")->l(chv.value)->end();
+				if (parts[currentChunk].eof()) {
+					this->logger.l(" EOF")->end();
+					currentChunk++;
+					continue;
 				}
 
-				currentChunk++;
-
-				//Выходим, если обработали последний элемент прохода, когда слияние многопроходное
-		//		if (currentChunk - 1 > 0 && nMergePasses > 1 && ((currentChunk - 1) % nChunksInPass) == 0) {
-		//			this->logger.l("break")->end();
-		//			break;
-		//		}
+				pqBuffer.push(chv);
+				this->logger.l(", value: ")->l(chv.value)->end();
 			}
 
-			ChunkValue minChunkValue = pqBuffer.top(); 
-			
-		//	if (
-		//		(currentMergePass == 0) ||
-		//		((nMergePasses - currentMergePass == 1) && (minChunkValue.value < currentValue.value)) ||
-		//		(nMergePasses - currentMergePass == 1) && nSlices - i == 1
-		//	) {
-				this->logger.l("Merge pass: ")->l(currentMergePass)->end();
-				this->logger.l("Merge passes - merge pass: ")->l(nMergePasses - currentMergePass)->end();
-				
-				this->logger.l("Values: ")
-							->l("chunk ")->l(minChunkValue.chunk)
-							->l(", min ")->l(minChunkValue.value)
-							->l(", chunk ")->l(currentValue.chunk)
-							->l(" cur ")->l(currentValue.value)->end();
-				
-				currentValue = minChunkValue;
-		//	}
+			currentChunk++;
+		}
 
-		//	this->logger.l("Reset buffer offset, set next merge pass...")->end();
-		//	currentMergePass++;
-		//}
+		ChunkValue minChunkValue = pqBuffer.top(); 
+
+		this->logger.l("Values: ")
+					->l("chunk ")->l(minChunkValue.chunk)
+					->l(", min ")->l(minChunkValue.value)
+					->l(", chunk ")->l(currentValue.chunk)
+					->l(" cur ")->l(currentValue.value)->end();
+		
+		currentValue = minChunkValue;
 
 		this->logger.l("Move chunk pointer forward: ")->l(currentValue.chunk)->end();
 
@@ -148,9 +123,20 @@ void Extsort::merge()
 		chunksPointers[currentValue.chunk] += elementSize;
 		chunksForRead[currentValue.chunk] = true;
 
-		this->outputFile.write(reinterpret_cast<char*>(&currentValue.value), elementSize);
-		
+		outputBuffer[outputBufferOffset] = currentValue.value;
+		outputBufferOffset++;
+
+		if (
+			outputBufferOffset == nElementsInBuffer ||
+			i == nSlices - 1
+		) {
+			this->logger.l("Flush output buffer to file.")->end();
+			this->outputFile.write(reinterpret_cast<char*>(outputBuffer), outputBufferOffset * elementSize);
+			outputBufferOffset = 0;
+		}
 	}
+
+	delete[] outputBuffer;
 }
 
 int Extsort::getFileSize(fstream& file)
