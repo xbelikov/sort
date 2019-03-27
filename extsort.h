@@ -6,8 +6,8 @@
 #include <iostream>
 #include <fstream>
 #include <queue>
-#include <vector>
 #include <future>
+#include <algorithm>
 
 #include "chunk_value.h"
 #include "logger.h"
