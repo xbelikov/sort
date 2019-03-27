@@ -48,44 +48,40 @@ void Extsort::processPart(int chunk, int nChunks, int bufferSize, int inputLengt
 
 	int leftBytes = inputLength - (int) ifs.tellg();
 	bufferSize = (leftBytes < bufferSize)? leftBytes : bufferSize;
+	int nElements = bufferSize / sizeof(int);
 
-	char* buffer = new char [bufferSize];
+	vector<int> buffer(nElements);
 	auto partFileName = to_string(chunk);
 	auto nread = 0;
 
 	ofstream part(partFileName, ios::out | ios::binary | ios::trunc);
 
 	ifs.seekg(chunk * bufferSize, ios::cur);
-	ifs.read(buffer, bufferSize);
+	ifs.read(reinterpret_cast<char*>(buffer.data()), bufferSize);
 	nread = ifs.gcount();
 
-	qsort(buffer, nread / sizeof(int), sizeof(int), Extsort::comp);
-	part.write(buffer, nread);
-
-	delete[] buffer;
+	//qsort(buffer, nread / sizeof(int), sizeof(int), Extsort::comp);
+	int lastElement = nread / sizeof(int);
+	sort(begin(buffer), begin(buffer) + lastElement);
+	part.write(reinterpret_cast<char*>(buffer.data()), nread);
 }
 
 void Extsort::merge()
 {
-	auto chunksSize = this->getChunksSize(this->chunks);
-	auto chunkValueSize = sizeof(ChunkValue);
-	auto nChunkValues = this->bufferSize / chunkValueSize;
-
 	auto elementSize = sizeof(int);
 	int nSlices = this->elements;
+	int nElementsInBuffer = this->bufferSize / elementSize;
 
 	vector<int> chunksPointers(this->chunks);
 	vector<bool> chunksForRead(this->chunks);
+	vector<int> outputBuffer;
 
 	ChunkValue currentValue;
 	priority_queue<ChunkValue, vector<ChunkValue>, ChunkValueCpm> pqBuffer;
 
-	int nElementsInBuffer = this->bufferSize / elementSize;
-	int* outputBuffer = new int[nElementsInBuffer];
-	auto outputBufferOffset = 0;
-
 	this->parts.reserve(this->chunks);
 
+	//Откроем временные файлы на чтение
 	for (int chunk = 0; chunk < this->chunks; chunk++) {
 		auto partFileName = to_string(chunk);
 		this->parts.emplace_back(partFileName, ios::in | ios::binary);
@@ -95,15 +91,13 @@ void Extsort::merge()
 	for (auto i = 0; i < nSlices; i++) {
 		auto currentChunk = 0;
 		
-		//Пройдемся по временным файлам согласно текущего указателя 
-		//и соберем подвыборки для дальнейшей сортировки и определения наименьшего
+		//Добавим в очередь, если необходимо и сравним
 		while (currentChunk < this->chunks) {
 			auto currentPointer = parts[currentChunk].tellg();
 
 			if (i == 0 || chunksForRead[currentChunk] && !parts[currentChunk].eof()) {
 				chunksForRead[currentChunk] = false;
 
-				//Храним не только значение, но и позицию, чтобы потом можно было легко передвинуть указатель
 				ChunkValue chv;
 				chv.chunk = currentChunk;
 
@@ -121,27 +115,23 @@ void Extsort::merge()
 		}
 
 		ChunkValue minChunkValue = pqBuffer.top();
-		
+
 		currentValue = minChunkValue;
 
-		//Перемещаем указатель на следующий элемент в выбранном блоке
 		pqBuffer.pop();
 		chunksPointers[currentValue.chunk] += elementSize;
 		chunksForRead[currentValue.chunk] = true;
 
-		outputBuffer[outputBufferOffset] = currentValue.value;
-		outputBufferOffset++;
+		outputBuffer.push_back(currentValue.value);
 
 		if (
-			outputBufferOffset == nElementsInBuffer ||
+			outputBuffer.size() == nElementsInBuffer ||
 			i == nSlices - 1
 		) {
-			this->outputFile.write(reinterpret_cast<char*>(outputBuffer), outputBufferOffset * elementSize);
-			outputBufferOffset = 0;
+			this->outputFile.write(reinterpret_cast<char*>(outputBuffer.data()), outputBuffer.size() * elementSize);
+			outputBuffer.clear();
 		}
 	}
-
-	delete[] outputBuffer;
 }
 
 int Extsort::getFileSize(fstream& file)
@@ -172,11 +162,11 @@ int Extsort::getChunkLength(int bufferSize, int chunksNumber)
 {
 	auto length = bufferSize / chunksNumber;
 
-  	while (length % sizeof(int)) {
-  		length++;
-  	}
+	while (length % sizeof(int)) {
+		length++;
+	}
 
-  	return length;
+	return length;
 }
 
 int Extsort::getChunksSize(int chunksNumber)
@@ -210,11 +200,6 @@ void Extsort::savePart(int index, string fileName, char* data, int length)
 {
 	ofstream part(fileName, ios::out | ios::binary | ios::trunc);
 	part.write(data, length);
-	//this->parts[index].write(data, length);
-	//this->parts[index].seekg(0);
-
-	//this->parts[index].flush();
-	//this->parts[index].clear();
 }
 
 void Extsort::savePart(int index, string fileName, priority_queue<int, vector<int>, std::greater<int>>& pqBuffer)
