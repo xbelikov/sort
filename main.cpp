@@ -13,6 +13,7 @@ int main(int argc, char* argv[])
 	string params;
 	bool logEnabled = false;
 	auto bufferSize = 6500000 * sizeof(int); //13000000 * sizeof(int);
+	auto threads = 3;
 
 	for (auto i = 1; i < argc; i++) {
 		params = argv[i];
@@ -27,7 +28,7 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	Extsort extsort("input", "output", bufferSize, logEnabled);
+	Extsort extsort("input", "output", bufferSize, threads, logEnabled);
 
 	cout << "Programm start" << endl;
 	time_t startTime = time(NULL);

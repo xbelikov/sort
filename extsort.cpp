@@ -2,10 +2,11 @@
 
 using namespace std;
 
-Extsort::Extsort(string inputFilename, string outputFilename, int bufferSize, bool useLogger): bufferSize(bufferSize), logger(useLogger)
+Extsort::Extsort(string inputFilename, string outputFilename, int bufferSize, int threads, bool useLogger): bufferSize(bufferSize), logger(useLogger)
 {
 	this->inputFile.open(inputFilename, ios::in | ios::binary);
 	this->outputFile.open(outputFilename, ios::out | ios::binary);
+	this->threads = threads;
 }
 
 void Extsort::run()
@@ -37,6 +38,12 @@ int Extsort::split()
 				this->processPart(i, nChunks, partBufferSize, inputSize);
 			})
 		);
+
+		if (i > 0 && i % this->threads == 0) {
+			for (auto j = 0; j < this->threads; j++) {
+				futures[i - j].wait();
+			}
+		} 
 	}
 
 	return this->chunks;
@@ -46,9 +53,10 @@ void Extsort::processPart(int chunk, int nChunks, int bufferSize, int inputLengt
 {
 	ifstream ifs("input", ios::in | ios::binary);
 
+	int elementSize = sizeof(int);
 	int leftBytes = inputLength - (int) ifs.tellg();
 	bufferSize = (leftBytes < bufferSize)? leftBytes : bufferSize;
-	int nElements = bufferSize / sizeof(int);
+	int nElements = bufferSize / elementSize;
 
 	vector<int> buffer(nElements);
 	auto partFileName = to_string(chunk);
@@ -60,8 +68,7 @@ void Extsort::processPart(int chunk, int nChunks, int bufferSize, int inputLengt
 	ifs.read(reinterpret_cast<char*>(buffer.data()), bufferSize);
 	nread = ifs.gcount();
 
-	//qsort(buffer, nread / sizeof(int), sizeof(int), Extsort::comp);
-	int lastElement = nread / sizeof(int);
+	int lastElement = nread / elementSize;
 	sort(begin(buffer), begin(buffer) + lastElement);
 	part.write(reinterpret_cast<char*>(buffer.data()), nread);
 }
@@ -156,63 +163,6 @@ int Extsort::getNumberOfChunks(int bufferSize, int inputFileSize)
 	}
 
 	return chunks;
-}
-
-int Extsort::getChunkLength(int bufferSize, int chunksNumber)
-{
-	auto length = bufferSize / chunksNumber;
-
-	while (length % sizeof(int)) {
-		length++;
-	}
-
-	return length;
-}
-
-int Extsort::getChunksSize(int chunksNumber)
-{
-	return chunksNumber * sizeof(int);
-}
-
-int Extsort::getNumberOfChunksInPass(int numberOfChunks, int numberOfPasses)
-{
-	int result = numberOfChunks / numberOfPasses;
-
-	if (numberOfChunks % numberOfPasses) {
-		result++;
-	}
-
-	return result;
-}
-
-int Extsort::getNumberOfPasses(int nChunkValues, int nChunks)
-{
-	auto result = nChunks / nChunkValues;
-
-	if (!result) {
-		result = 1;
-	}
-
-	return result;
-}
-
-void Extsort::savePart(int index, string fileName, char* data, int length)
-{
-	ofstream part(fileName, ios::out | ios::binary | ios::trunc);
-	part.write(data, length);
-}
-
-void Extsort::savePart(int index, string fileName, priority_queue<int, vector<int>, std::greater<int>>& pqBuffer)
-{
-	while(pqBuffer.size()) {
-		auto top = pqBuffer.top();
-		this->parts[index].write(reinterpret_cast<char*>(&top), sizeof(int));
-		pqBuffer.pop();
-	}
-
-	this->parts[index].seekg(0);
-	this->parts[index].flush();
-	this->parts[index].clear();
 }
 
 int Extsort::comp(const void* p1, const void* p2)

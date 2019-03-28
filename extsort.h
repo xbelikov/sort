@@ -17,7 +17,7 @@ using namespace std;
 class Extsort
 {
 public:
-	Extsort(string inputFilename, string outputFilename, int bufferSize, bool useLogger);
+	Extsort(string inputFilename, string outputFilename, int bufferSize, int threads, bool useLogger);
 	void run();
 
 private:
@@ -25,6 +25,7 @@ private:
 	fstream inputFile;
 	fstream outputFile;
 	int bufferSize;
+	int threads;
 
 	vector<fstream> parts;
 
@@ -35,12 +36,6 @@ private:
 	void merge();
 	int getFileSize(fstream& file);
 	int getNumberOfChunks(int bufferSize, int inputFileSize);
-	int getNumberOfChunksInPass(int numberOfChunks, int numberOfPasses);
-	int getNumberOfPasses(int nChunkValues, int nChunks);
-	int getChunkLength(int bufferSize, int chunksNumber);
-	int getChunksSize(int chunksNumber);
-	void savePart(int index, string fileName, char* data, int length);
-	void savePart(int index, string fileName, priority_queue<int, vector<int>, std::greater<int>>& pqBuffer);
 	void processPart(int chunk, int nChunks, int bufferSize, int inputLength);
 	static int comp(const void* p1, const void* p2);
 };
