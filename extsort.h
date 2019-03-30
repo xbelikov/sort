@@ -37,7 +37,7 @@ private:
 	void merge();
 	unsigned long getFileSize(fstream& file);
 	unsigned long getNumberOfChunks(int bufferSize, unsigned long inputFileSize);
-	void processPart(string& fileName, unsigned long chunk, unsigned long nChunks, int bufferSize, unsigned long inputLength);
+	void processPart(string& fileName, unsigned int chunk, unsigned int nChunks, int bufferSize, unsigned long inputLength);
 	static int comp(const void* p1, const void* p2);
 };
 

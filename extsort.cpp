@@ -46,7 +46,7 @@ int Extsort::split()
 	return this->chunks;
 }
 
-void Extsort::processPart(string& fileName, unsigned long chunk, unsigned long nChunks, int bufferSize, unsigned long inputLength)
+void Extsort::processPart(string& fileName, unsigned int chunk, unsigned int nChunks, int bufferSize, unsigned long inputLength)
 {
 	ifstream ifs(fileName, ios::in | ios::binary);
 
