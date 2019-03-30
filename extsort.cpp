@@ -15,7 +15,7 @@ void Extsort::run()
 	this->merge();
 }
 
-int Extsort::split()
+unsigned int Extsort::split()
 {
 	auto elementSize = sizeof(unsigned int);
 	auto inputSize = this->getFileSize(this->inputFile);
@@ -24,10 +24,6 @@ int Extsort::split()
 	this->chunks = this->getNumberOfChunks(this->bufferSize, inputSize);
 
 	vector<future<void>> futures;
-
-	//auto nChunks = this->chunks;
-	//auto partBufferSize = this->bufferSize;
-	//auto filaName = this->inputFileName;
 
 	for (auto i = 0; i < this->chunks; i++) {
 		futures.push_back(

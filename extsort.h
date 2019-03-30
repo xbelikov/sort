@@ -33,7 +33,7 @@ private:
 	unsigned int chunks;
 	unsigned long elements;
 
-	int split();
+	unsigned int split();
 	void merge();
 	unsigned long getFileSize(fstream& file);
 	unsigned long getNumberOfChunks(int bufferSize, unsigned long inputFileSize);
