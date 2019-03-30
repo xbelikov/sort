@@ -17,11 +17,12 @@ using namespace std;
 class Extsort
 {
 public:
-	Extsort(string inputFilename, string outputFilename, int bufferSize, int threads, bool useLogger);
+	Extsort(string inputFileName, string outputFileName, int bufferSize, int threads);
 	void run();
 
 private:
-	Logger logger;
+	string inputFileName;
+	string outputFileName;
 	fstream inputFile;
 	fstream outputFile;
 	int bufferSize;
@@ -29,14 +30,14 @@ private:
 
 	vector<fstream> parts;
 
-	int chunks;
-	int elements;
+	unsigned int chunks;
+	unsigned long elements;
 
 	int split();
 	void merge();
-	int getFileSize(fstream& file);
-	int getNumberOfChunks(int bufferSize, int inputFileSize);
-	void processPart(int chunk, int nChunks, int bufferSize, int inputLength);
+	unsigned long getFileSize(fstream& file);
+	unsigned long getNumberOfChunks(int bufferSize, unsigned long inputFileSize);
+	void processPart(string& fileName, unsigned long chunk, unsigned long nChunks, int bufferSize, unsigned long inputLength);
 	static int comp(const void* p1, const void* p2);
 };
 

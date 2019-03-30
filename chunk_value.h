@@ -3,8 +3,8 @@
 
 struct ChunkValue
 {
-	int value;
-	int chunk;
+	unsigned int value;
+	unsigned int chunk;
 };
 
 class ChunkValueCpm
